@@ -1,0 +1,7 @@
+{
+  "Parameters" : {
+    "Bucketname" : "yourBucketname",
+    "CertificateArn" : "yourCertARN",
+    "Domain" : "yourDomainWithPeriod"
+  }
+}

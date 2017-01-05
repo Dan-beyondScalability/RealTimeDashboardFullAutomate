@@ -1,0 +1,176 @@
+Parameters: 
+    ArtifactBucketName: 
+        Type: String
+
+
+Resources:
+# S3 Artifact Bucket
+    ArtifactBucket:
+        Type: "AWS::S3::Bucket"
+        Properties: 
+            BucketName: !Ref ArtifactBucketName
+            VersioningConfiguration:
+                Status: "Enabled"
+
+# IAM Roles
+    CodepipelineRole:
+        Type: "AWS::IAM::Role"
+        Properties: 
+            AssumeRolePolicyDocument: 
+                Version: "2012-10-17"
+                Statement: 
+                - 
+                    Effect: "Allow"
+                    Principal: 
+                        Service: 
+                            - "codepipeline.amazonaws.com"
+                    Action: 
+                    - "sts:AssumeRole"
+            ManagedPolicyArns:
+                - "arn:aws:iam::aws:policy/AWSCodePipelineFullAccess" 
+                - "arn:aws:iam::aws:policy/AdministratorAccess" 
+            RoleName: "CodePipelineRole"
+
+    CloudFormationRole:
+        Type: "AWS::IAM::Role"
+        Properties: 
+            AssumeRolePolicyDocument: 
+                Version: "2012-10-17"
+                Statement: 
+                - 
+                    Effect: "Allow"
+                    Principal: 
+                        Service: 
+                            - "cloudformation.amazonaws.com"
+                    Action: 
+                    - "sts:AssumeRole"
+            ManagedPolicyArns:
+                - "arn:aws:iam::aws:policy/AdministratorAccess" 
+            RoleName: "CloudFormationRole"
+
+    CodeBuildRole:
+        Type: "AWS::IAM::Role"
+        Properties: 
+            AssumeRolePolicyDocument: 
+                Version: "2012-10-17"
+                Statement: 
+                - 
+                    Effect: "Allow"
+                    Principal: 
+                        Service: 
+                            - "codebuild.amazonaws.com"
+                    Action: 
+                        - "sts:AssumeRole"
+            ManagedPolicyArns:
+                - "arn:aws:iam::aws:policy/AdministratorAccess" 
+            RoleName: "CodeBuildRole"
+
+
+
+
+#CodePipeline
+    Pipeline:
+        Type: "AWS::CodePipeline::Pipeline"
+        Properties:
+            ArtifactStore:
+                Location: !Ref ArtifactBucket
+                Type: "S3"
+            Name: "DashboardPipeline"
+            RestartExecutionOnUpdate: false
+            RoleArn: !GetAtt CodepipelineRole.Arn
+            Stages:
+                - 
+                    Name: "Source"
+                    Actions: 
+                    - 
+                        Name: "Pull"
+                        ActionTypeId: 
+                            Category: Source
+                            Owner: AWS
+                            Version: 1
+                            Provider: CodeCommit
+                        OutputArtifacts: 
+                            - Name: SourceArtf
+                        Configuration: 
+                            RepositoryName: !ImportValue ex-Init-DashboardRepo
+                            BranchName: master
+                        RunOrder: 1       
+                - 
+                    Name: Deploy
+                    Actions: 
+                    - 
+                        Name: DeployLambdas
+                        InputArtifacts:
+                            - Name: SourceArtf
+                        ActionTypeId: 
+                            Category: Deploy
+                            Owner: AWS
+                            Version: 1
+                            Provider: CloudFormation
+                        Configuration:
+                            ActionMode: REPLACE_ON_FAILURE
+                            RoleArn: !GetAtt CloudFormationRole.Arn
+                            StackName: LambdaFunctions
+                            TemplatePath: "SourceArtf::LambdaFunctions.cf"
+                            Capabilities: CAPABILITY_NAMED_IAM
+                            ParameterOverrides: '{"ArtifactKeyName":{"Fn::GetArtifactAtt":["SourceArtf", "ObjectKey"]}}'
+                        RunOrder: 1
+                    - 
+                        Name: DeployDashboard
+                        InputArtifacts:
+                            - Name: SourceArtf
+                        ActionTypeId: 
+                            Category: Deploy
+                            Owner: AWS
+                            Version: 1
+                            Provider: CloudFormation
+                        Configuration:
+                            ActionMode: REPLACE_ON_FAILURE
+                            RoleArn: !GetAtt CloudFormationRole.Arn
+                            StackName: Dashboard
+                            TemplatePath: SourceArtf::Dashboard.cf
+                            TemplateConfiguration: SourceArtf::DashboardConfig.json
+                            Capabilities: CAPABILITY_NAMED_IAM
+                        RunOrder: 1
+                -
+                    Name: Invoke
+                    Actions:
+                    -
+                        Name: Invoke-StartProxy
+                        ActionTypeId: 
+                            Category: Invoke
+                            Owner: AWS
+                            Version: 1
+                            Provider: Lambda
+                        Configuration:
+                            FunctionName: StartProxyFunction
+                        RunOrder: 1
+                    -
+                        Name: Invoke-CreateAnalytics
+                        ActionTypeId: 
+                            Category: Invoke
+                            Owner: AWS
+                            Version: 1
+                            Provider: Lambda
+                        Configuration:
+                            FunctionName: CreateAnalyticsFunction
+                        RunOrder: 1
+                    -
+                        Name: Invoke-CreateESindexFunction
+                        ActionTypeId: 
+                            Category: Invoke
+                            Owner: AWS
+                            Version: 1
+                            Provider: Lambda
+                        Configuration:
+                            FunctionName: CreateESindexFunction
+                        RunOrder: 2
+
+
+
+Outputs:
+    exArtifactBucket:
+        Description: The CodePipeline S3 Artifact Bucket
+        Value: !Ref ArtifactBucket
+        Export:
+            Name: !Sub ex-${AWS::StackName}-ArtifactBucket

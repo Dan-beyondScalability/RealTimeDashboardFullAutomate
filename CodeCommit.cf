@@ -1,0 +1,25 @@
+Resources:
+
+    DashboardRepo:
+        Type: "AWS::CodeCommit::Repository"
+        Properties: 
+            RepositoryDescription: Repository for all Code related to the Realtime Dashboard
+            RepositoryName: DashboardRepo
+
+    GitUser:
+        Type: "AWS::IAM::User"
+        Properties: 
+            UserName: GitUser
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/IAMReadOnlyAccess
+                - arn:aws:iam::aws:policy/IAMUserSSHKeys
+                - arn:aws:iam::aws:policy/AWSCodeCommitFullAccess
+
+
+
+Outputs:
+    exDashboardRepo:
+        Description: The CodeCommit Repository
+        Value: !GetAtt DashboardRepo.Name
+        Export:
+            Name: !Sub ex-${AWS::StackName}-DashboardRepo
