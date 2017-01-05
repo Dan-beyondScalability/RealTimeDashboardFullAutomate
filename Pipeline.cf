@@ -48,25 +48,6 @@ Resources:
                 - "arn:aws:iam::aws:policy/AdministratorAccess" 
             RoleName: "CloudFormationRole"
 
-    CodeBuildRole:
-        Type: "AWS::IAM::Role"
-        Properties: 
-            AssumeRolePolicyDocument: 
-                Version: "2012-10-17"
-                Statement: 
-                - 
-                    Effect: "Allow"
-                    Principal: 
-                        Service: 
-                            - "codebuild.amazonaws.com"
-                    Action: 
-                        - "sts:AssumeRole"
-            ManagedPolicyArns:
-                - "arn:aws:iam::aws:policy/AdministratorAccess" 
-            RoleName: "CodeBuildRole"
-
-
-
 
 #CodePipeline
     Pipeline:
@@ -92,7 +73,7 @@ Resources:
                         OutputArtifacts: 
                             - Name: SourceArtf
                         Configuration: 
-                            RepositoryName: !ImportValue ex-Init-DashboardRepo
+                            RepositoryName: !ImportValue ex-CodeCommit-DashboardRepo
                             BranchName: master
                         RunOrder: 1       
                 - 
