@@ -8,3 +8,6 @@ Templates and Lambda Functions required for Part 11 of
 - The Template is build for use in eu-west-1 (Ireland, Dublin).
 - An existing keypair named *kp_Dashboard* is required
 - An existing Certificate and HostedZone are required
+
+## Contact
+Twitter: @Dan_BeyondScale
